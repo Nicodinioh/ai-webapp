@@ -64,7 +64,10 @@ const DEFAULT_PARAMS = {
   open: { tone: 8600, decay: 0.32, level: 0.6, dly: 0.06, rev: 0.16 },
   shkr: { tone: 6200, decay: 0.07, level: 0.6, dly: 0, rev: 0.1 },
   perc: { tune: 220, decay: 0.18, punch: 0.02, level: 0.7, dly: 0.22, rev: 0.2 },
-  bass: { cutoff: 340, reso: 4, decay: 0.25, gate: 0.85, glide: 0, level: 0.9, dly: 0, rev: 0 },
+  /* Acid comes from high resonance plus a deep filter envelope. Both are
+     parameters now, and both start low: this is a tech-house sub, not a 303. */
+  bass: { wave: "sawtooth", cutoff: 190, reso: 1, env: 0.4, decay: 0.2, gate: 0.45,
+          glide: 0, level: 0.9, dly: 0, rev: 0 },
   stab: { cutoff: 2200, decay: 0.22, level: 0.6, dly: 0.38, rev: 0.35 },
 };
 
@@ -87,7 +90,7 @@ const EDIT = {
   open: [["tone", "TONE", 3000, 12000, 50, "Hz"], ["decay", "DECAY", 0.05, 1.2, 0.01, "s"], ...COMMON],
   shkr: [["tone", "TONE", 2000, 12000, 50, "Hz"], ["decay", "DECAY", 0.02, 0.4, 0.005, "s"], ...COMMON],
   perc: [["tune", "TUNE", 90, 600, 2, "Hz"], ["decay", "DECAY", 0.05, 0.9, 0.01, "s"], ["punch", "PUNCH", 0.005, 0.09, 0.001, ""], ...COMMON],
-  bass: [["cutoff", "CUTOFF", 60, 2600, 10, "Hz"], ["reso", "RESO", 0.5, 12, 0.1, ""], ["decay", "DECAY", 0.05, 0.8, 0.01, "s"], ["gate", "GATE", 0.2, 1.6, 0.05, ""], ["glide", "GLIDE", 0, 0.18, 0.005, "s"], ...COMMON],
+  bass: [["cutoff", "CUTOFF", 60, 2600, 10, "Hz"], ["reso", "RESO", 0, 12, 0.1, ""], ["env", "SWEEP", 0, 4, 0.1, "oct"], ["decay", "DECAY", 0.05, 0.8, 0.01, "s"], ["gate", "GATE", 0.2, 1.6, 0.05, ""], ["glide", "GLIDE", 0, 0.18, 0.005, "s"], ...COMMON],
   stab: [["cutoff", "CUTOFF", 300, 6000, 20, "Hz"], ["decay", "DECAY", 0.05, 1.2, 0.01, "s"], ...COMMON],
 };
 
@@ -96,58 +99,76 @@ const EDIT = {
    inside the range its EDIT row allows. */
 const SOUND_PRESETS = {
   kick: [
+    ["TECH HOUSE",  { tune: 46, decay: 0.36, punch: 0.05 }],
     ["909 TROCKEN", { tune: 52, decay: 0.28, punch: 0.03 }],
-    ["SUB LANG",    { tune: 41, decay: 0.75, punch: 0.06 }],
-    ["KLICK HART",  { tune: 58, decay: 0.22, punch: 0.012 }],
-    ["RUND TIEF",   { tune: 44, decay: 0.5, punch: 0.075 }],
+    ["PEAK HART",   { tune: 55, decay: 0.3, punch: 0.018 }],
+    ["COCOON TIEF", { tune: 42, decay: 0.55, punch: 0.065 }],
+    ["808 SUB",     { tune: 34, decay: 0.95, punch: 0.085 }],
+    ["KLICK",       { tune: 60, decay: 0.2, punch: 0.008 }],
   ],
   bass: [
-    ["SUB WARM",    { cutoff: 180, reso: 2, decay: 0.35, gate: 0.9, glide: 0 }],
-    ["ROLLEND",     { cutoff: 380, reso: 5, decay: 0.16, gate: 0.5, glide: 0 }],
-    ["ACID SCHARF", { cutoff: 620, reso: 10.5, decay: 0.2, gate: 0.6, glide: 0.05 }],
-    ["ELECTRO SAW", { cutoff: 900, reso: 7, decay: 0.3, gate: 1, glide: 0.02 }],
+    ["TECH HOUSE",  { wave: "sawtooth", cutoff: 190, reso: 1, env: 0.4, decay: 0.2, gate: 0.45, glide: 0 }],
+    ["SUB ROUND",   { wave: "sine", cutoff: 400, reso: 0, env: 0.2, decay: 0.3, gate: 0.5, glide: 0 }],
+    ["PEAK ROLL",   { wave: "sawtooth", cutoff: 300, reso: 1.8, env: 0.7, decay: 0.15, gate: 0.4, glide: 0 }],
+    ["808 SUB",     { wave: "sine", cutoff: 700, reso: 0, env: 0, decay: 0.65, gate: 1.2, glide: 0.02 }],
+    ["ELECTRO",     { wave: "square", cutoff: 620, reso: 3, env: 1.1, decay: 0.28, gate: 0.85, glide: 0.01 }],
+    ["ACID",        { wave: "sawtooth", cutoff: 480, reso: 9, env: 3, decay: 0.2, gate: 0.6, glide: 0.05 }],
   ],
   hat: [
-    ["TIGHT",       { tone: 9500, decay: 0.022 }],
-    ["METALLISCH",  { tone: 11000, decay: 0.03 }],
+    ["TECH HOUSE",  { tone: 9000, decay: 0.028 }],
+    ["909 TIGHT",   { tone: 10000, decay: 0.02 }],
+    ["808 METALL",  { tone: 11500, decay: 0.035 }],
     ["WEICH",       { tone: 6200, decay: 0.045 }],
-    ["LANG",        { tone: 7000, decay: 0.06 }],
+    ["LANG",        { tone: 7000, decay: 0.075 }],
+    ["TICK",        { tone: 12000, decay: 0.014 }],
   ],
   open: [
-    ["KURZ",        { tone: 9000, decay: 0.18 }],
+    ["TECH HOUSE",  { tone: 8600, decay: 0.28 }],
+    ["KURZ",        { tone: 9000, decay: 0.16 }],
+    ["909 OFFEN",   { tone: 9500, decay: 0.42 }],
     ["ZISCHEND",    { tone: 11000, decay: 0.35 }],
     ["DUNKEL",      { tone: 5500, decay: 0.45 }],
-    ["LANG",        { tone: 8000, decay: 0.6 }],
+    ["LANG",        { tone: 8000, decay: 0.8 }],
   ],
   clap: [
-    ["TROCKEN",     { tone: 1600, decay: 0.16, spread: 0.008 }],
-    ["BREIT",       { tone: 1100, decay: 0.42, spread: 0.03 }],
-    ["SCHARF",      { tone: 2400, decay: 0.2, spread: 0.012 }],
+    ["TECH HOUSE",  { tone: 1500, decay: 0.22, spread: 0.012 }],
+    ["909 BREIT",   { tone: 1100, decay: 0.42, spread: 0.03 }],
+    ["TROCKEN",     { tone: 1700, decay: 0.14, spread: 0.006 }],
+    ["808 SCHARF",  { tone: 2400, decay: 0.18, spread: 0.01 }],
     ["WEICH",       { tone: 900, decay: 0.3, spread: 0.022 }],
+    ["KURZ",        { tone: 2000, decay: 0.1, spread: 0.004 }],
   ],
   rim: [
-    ["HOLZ",        { tone: 1500, decay: 0.025 }],
-    ["HOCH",        { tone: 3200, decay: 0.02 }],
-    ["WEICH",       { tone: 1200, decay: 0.06 }],
-    ["TICK",        { tone: 2600, decay: 0.015 }],
+    ["808 RIM",     { tone: 1700, decay: 0.02 }],
+    ["HOLZ",        { tone: 1400, decay: 0.03 }],
+    ["HOCH",        { tone: 3200, decay: 0.018 }],
+    ["WEICH",       { tone: 1100, decay: 0.055 }],
+    ["TICK",        { tone: 2600, decay: 0.014 }],
+    ["LANG",        { tone: 2000, decay: 0.09 }],
   ],
   shkr: [
-    ["FEIN",        { tone: 8000, decay: 0.05 }],
-    ["TROCKEN",     { tone: 7000, decay: 0.035 }],
+    ["TECH HOUSE",  { tone: 7200, decay: 0.06 }],
+    ["FEIN",        { tone: 8500, decay: 0.045 }],
+    ["TROCKEN",     { tone: 6500, decay: 0.035 }],
     ["LANG",        { tone: 5500, decay: 0.16 }],
-    ["RAUSCH",      { tone: 3500, decay: 0.22 }],
+    ["RAUSCH",      { tone: 3500, decay: 0.24 }],
+    ["HELL",        { tone: 10000, decay: 0.05 }],
   ],
   perc: [
     ["CONGA",       { tune: 260, decay: 0.28, punch: 0.03 }],
     ["TOM TIEF",    { tune: 130, decay: 0.45, punch: 0.05 }],
+    ["808 COWBELL", { tune: 540, decay: 0.14, punch: 0.008 }],
     ["BLOCK",       { tune: 480, decay: 0.1, punch: 0.012 }],
-    ["LANG",        { tune: 190, decay: 0.6, punch: 0.04 }],
+    ["TRIBAL",      { tune: 190, decay: 0.6, punch: 0.04 }],
+    ["KURZ",        { tune: 330, decay: 0.12, punch: 0.018 }],
   ],
   stab: [
-    ["KURZ",        { cutoff: 1400, decay: 0.12 }],
+    ["TECH HOUSE",  { cutoff: 1600, decay: 0.16 }],
+    ["KURZ",        { cutoff: 1400, decay: 0.1 }],
     ["HELL",        { cutoff: 4200, decay: 0.18 }],
     ["WEIT",        { cutoff: 2600, decay: 0.5 }],
-    ["FLÄCHE",      { cutoff: 1800, decay: 0.9 }],
+    ["DUNKEL",      { cutoff: 800, decay: 0.3 }],
+    ["FLÄCHE",      { cutoff: 1800, decay: 0.95 }],
   ],
 };
 
@@ -359,10 +380,11 @@ function buildEngine() {
   perc.volume.value = -8;
 
   const bass = new Tone.MonoSynth({
-    oscillator: { type: "sawtooth" },
-    filter: { type: "lowpass", Q: 4, rolloff: -24 },
-    envelope: { attack: 0.004, decay: 0.25, sustain: 0.22, release: 0.06 },
-    filterEnvelope: { attack: 0.004, decay: 0.12, sustain: 0.22, release: 0.1, baseFrequency: 340, octaves: 2.4 },
+    oscillator: { type: DEFAULT_PARAMS.bass.wave },
+    filter: { type: "lowpass", Q: DEFAULT_PARAMS.bass.reso, rolloff: -24 },
+    envelope: { attack: 0.004, decay: DEFAULT_PARAMS.bass.decay, sustain: 0.22, release: 0.06 },
+    filterEnvelope: { attack: 0.004, decay: 0.12, sustain: 0.22, release: 0.1,
+      baseFrequency: DEFAULT_PARAMS.bass.cutoff, octaves: DEFAULT_PARAMS.bass.env },
   }).connect(ch.bass.gain);
   bass.volume.value = -6;
 
@@ -759,6 +781,8 @@ export default function Groovebox() {
     e.shkrF.frequency.value = p.shkr.tone; e.shkr.envelope.decay = p.shkr.decay;
     e.perc.envelope.decay = p.perc.decay; e.perc.pitchDecay = p.perc.punch;
     e.bass.filterEnvelope.baseFrequency = p.bass.cutoff;
+    e.bass.filterEnvelope.octaves = p.bass.env;
+    if (e.bass.oscillator.type !== p.bass.wave) e.bass.oscillator.type = p.bass.wave;
     e.bass.filter.Q.value = p.bass.reso;
     e.bass.envelope.decay = p.bass.decay;
     e.bass.portamento = p.bass.glide;
@@ -1093,6 +1117,15 @@ export default function Groovebox() {
                 <button key={name}
                   className={"chip" + (sndPre[grp] === name ? " act" : "")}
                   onClick={() => applySound(name, vals)}>{name}</button>
+              ))}
+            </div>
+          )}
+          {!isSmp && grp === "bass" && (
+            <div className="bar" style={{ marginBottom: 10 }}>
+              <span className="lbl">WELLE</span>
+              {[["sine", "SINE"], ["triangle", "TRI"], ["sawtooth", "SAW"], ["square", "SQR"]].map(([v, l]) => (
+                <button key={v} className={"btn" + (params.bass.wave === v ? " act" : "")}
+                  onClick={() => setP("wave", v)}>{l}</button>
               ))}
             </div>
           )}
