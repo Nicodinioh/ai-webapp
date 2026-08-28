@@ -437,6 +437,33 @@ export default function Groovebox() {
 
   /* ---- build / dispose engine ---- */
   useEffect(() => {
+    /* Tone drives its clock from a Worker built out of a Blob so the timing
+       survives a backgrounded tab. A strict Content-Security-Policy can refuse
+       that, and the transport would then silently never advance. The refusal is
+       asynchronous, so probe with a real round-trip rather than a try/catch,
+       and fall back to Tone's timeout clock. Audio only starts on the first
+       PLAY, long after this settles. */
+    let stale = false;
+    (async () => {
+      const ok = await new Promise((resolve) => {
+        try {
+          const url = URL.createObjectURL(
+            new Blob(["onmessage=()=>postMessage(1)"], { type: "text/javascript" }));
+          const w = new Worker(url);
+          const finish = (v) => {
+            try { w.terminate(); } catch (e) {}
+            URL.revokeObjectURL(url);
+            resolve(v);
+          };
+          const timer = setTimeout(() => finish(false), 500);
+          w.onmessage = () => { clearTimeout(timer); finish(true); };
+          w.onerror = () => { clearTimeout(timer); finish(false); };
+          w.postMessage(0);
+        } catch (err) { resolve(false); }
+      });
+      if (!stale && !ok) { try { Tone.getContext().clockSource = "timeout"; } catch (e) {} }
+    })();
+
     eng.current = buildEngine();
     const t = getT();
     t.bpm.value = masRef.current.bpm;
@@ -444,6 +471,7 @@ export default function Groovebox() {
     t.swingSubdivision = "16n";
     const id = t.scheduleRepeat((time) => tick(time), "16n");
     return () => {
+      stale = true;
       try { t.clear(id); t.stop(); } catch (e) {}
       const e0 = eng.current;
       if (e0) Object.values(e0.smpl || {}).forEach((v) => {
