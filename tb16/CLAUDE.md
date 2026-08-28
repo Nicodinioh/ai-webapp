@@ -30,6 +30,7 @@ npm run build   # Produktions-Build
 | `fire(id, time, vel)` | Löst genau eine Stimme aus |
 | `playSample(id, time, vel)` | Spielt das zugewiesene Sample; `false`, wenn die Spur keins hat |
 | `tick(time)` | 16tel-Clock, per `scheduleRepeat` am Transport |
+| `SOUND_PRESETS` | Vier Klang-Startpunkte je Gruppe, nur Klangfarbe |
 | `Ctl` | Ein Regler (Label, Wert, Range-Input) |
 
 Signalweg: Stimme → Kanal-Gain → (Bass und Stab zusätzlich über `duck`) → `bus`
@@ -38,6 +39,13 @@ Delay und Reverb hängen als Sends an den Kanal-Gains und speisen zurück in den
 
 ## Datenmodell
 
+- `banks` hält vier Patterns (A–D). `pattern` ist nur die Sicht auf die
+  gerade gewählte Bank, `setPattern` schreibt in sie zurück — alles
+  Nachgelagerte (Sequencer, Presets, Würfeln, Slots) arbeitet unverändert
+  auf `pattern`.
+- `chain` sind acht Plätze mit je einer Bank oder `null`. Im Song-Mode rückt
+  die Kette pro Takt einen belegten Platz weiter; Bankwechsel greifen immer
+  erst zur Taktgrenze, nie mitten im Pattern.
 - `pattern` ist ein Objekt: Track-ID → Array mit 16 Zahlen.
 - Werte: `0` aus, `1` an, `2` Akzent. Velocity dazu: `0.72` bzw. `1.0`.
 - Bass-Lanes teilen sich eine MonoSynth-Stimme, Intervalle 0 / 7 / 12 Halbtöne,
@@ -77,10 +85,13 @@ Delay und Reverb hängen als Sends an den Kanal-Gains und speisen zurück in den
    `Tone.Transport`-Zugriffe ersetzen.
 8. Layout ist für 380 px Breite ausgelegt: Spurnamen 56 px, Steps 22 px hoch.
    Änderungen am Grid dort gegenprüfen.
-9. Die Zuweisungen `patRef.current = pattern` stehen bewusst im
-   Render-Pfad, damit der Audio-Callback nie veraltete Werte liest.
-   Der Lint-Hinweis dazu ist bekannt und bleibt. Nicht in `useEffect`
-   verschieben — das hinkt eine Renderrunde hinterher.
+9. **Umlaute in JSX-Text direkt schreiben, nicht als `\uXXXX`.** In einem
+   JS-String wird die Sequenz ausgewertet, in JSX-Text nicht — dort steht
+   sie dann roh auf der Seite.
+10. Die Zuweisungen `patRef.current = pattern` stehen bewusst im
+    Render-Pfad, damit der Audio-Callback nie veraltete Werte liest.
+    Der Lint-Hinweis dazu ist bekannt und bleibt. Nicht in `useEffect`
+    verschieben — das hinkt eine Renderrunde hinterher.
 
 ## Sprache
 

@@ -23,6 +23,9 @@ const TRACKS = [
   { id: "stab",  label: "STAB",   grp: "stab",  color: "#ff6bf0" },
 ];
 
+const BANKS = ["A", "B", "C", "D"];
+const CHAIN_LEN = 8;
+
 const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const CHORDS = {
   min:  [0, 3, 7],
@@ -435,6 +438,8 @@ overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .drop{border:1px dashed rgba(255,255,255,.18);border-radius:8px;padding:12px 10px;text-align:center;
 font-size:9px;letter-spacing:.12em;color:var(--dim);cursor:pointer}
 .drop.over{border-color:#ffb454;color:#ffb454;background:rgba(255,180,84,.06)}
+.lbl{font-size:8px;letter-spacing:.16em;color:var(--dim)}
+.btn.now{border-color:#2fe0c0;color:#7ffbe4;box-shadow:0 0 8px rgba(47,224,192,.35)}
 .name.smp{color:#2fe0c0}
 .name.smp.sel{color:#7ffbe4}
 @media (prefers-reduced-motion:reduce){.tb *{transition:none!important}}
@@ -457,7 +462,22 @@ function Ctl({ label, value, min, max, step, unit, onChange }) {
 }
 
 export default function Groovebox() {
-  const [pattern, setPattern] = useState(() => PRESETS[0].pattern);
+  const [banks, setBanks] = useState(() => ({
+    A: PRESETS[0].pattern, B: emptyPattern(), C: emptyPattern(), D: emptyPattern(),
+  }));
+  const [bank, setBank] = useState("A");          // the bank being edited
+  const [chain, setChain] = useState(() => ["A", "A", "B", "A", null, null, null, null]);
+  const [song, setSong] = useState(false);
+  const [playBank, setPlayBank] = useState("A");  // the bank currently sounding
+  const [chainAt, setChainAt] = useState(-1);     // slot of the chain being played
+  const [copyArm, setCopyArm] = useState(false);
+
+  /* Everything downstream still works on one pattern; it is just the selected
+     bank now, so the sequencer, presets, dice and slots need no changes. */
+  const pattern = banks[bank];
+  const setPattern = useCallback((next) => setBanks((b) => ({
+    ...b, [bank]: typeof next === "function" ? next(b[bank]) : next,
+  })), [bank]);
   const [params, setParams] = useState(() => JSON.parse(JSON.stringify(DEFAULT_PARAMS)));
   const [master, setMaster] = useState(() => ({ ...DEFAULT_MASTER, bpm: PRESETS[0].bpm, swing: PRESETS[0].swing }));
   const [mutes, setMutes] = useState({});
@@ -484,6 +504,12 @@ export default function Groovebox() {
   const masRef = useRef(master);
   const mutRef = useRef(mutes);
   const musRef = useRef({ root, chord });
+  const bnkRef = useRef(banks);
+  const selBankRef = useRef(bank);
+  const chainRef = useRef(chain);
+  const songRef = useRef(song);
+  const nowBankRef = useRef("A");   // bank the clock is reading
+  const chainIdxRef = useRef(0);    // position within the filtered chain
   const srcRef = useRef(srcs);
   const smpRef = useRef(smpl);
   const posRef = useRef(0);
@@ -493,6 +519,10 @@ export default function Groovebox() {
   masRef.current = master;
   mutRef.current = mutes;
   musRef.current = { root, chord };
+  bnkRef.current = banks;
+  selBankRef.current = bank;
+  chainRef.current = chain;
+  songRef.current = song;
   srcRef.current = srcs;
   smpRef.current = smpl;
 
@@ -629,7 +659,27 @@ export default function Groovebox() {
   const tick = useCallback((time) => {
     const e = eng.current; if (!e) return;
     const s = posRef.current % STEPS;
-    const pat = patRef.current;
+
+    /* Bank changes land on the bar line, never mid-pattern. In song mode the
+       chain advances one slot per bar; empty slots are skipped. */
+    if (s === 0) {
+      const seq = chainRef.current
+        .map((c, i) => ({ c, i }))
+        .filter((x) => x.c && bnkRef.current[x.c]);
+      if (songRef.current && seq.length) {
+        if (posRef.current > 0) chainIdxRef.current = (chainIdxRef.current + 1) % seq.length;
+        const at = seq[chainIdxRef.current % seq.length];
+        nowBankRef.current = at.c;
+        getD().schedule(() => setChainAt(at.i), time);
+      } else {
+        nowBankRef.current = selBankRef.current;
+        getD().schedule(() => setChainAt(-1), time);
+      }
+      const nb = nowBankRef.current;
+      getD().schedule(() => setPlayBank((b) => (b === nb ? b : nb)), time);
+    }
+
+    const pat = bnkRef.current[nowBankRef.current] || bnkRef.current[selBankRef.current];
     const mut = mutRef.current;
     const pump = masRef.current.pump;
 
@@ -704,10 +754,11 @@ export default function Groovebox() {
   const toggle = useCallback(async () => {
     const t = getT();
     if (playing) {
-      t.stop(); posRef.current = 0; setStep(-1); setPlaying(false);
+      t.stop(); posRef.current = 0; chainIdxRef.current = 0;
+      setStep(-1); setChainAt(-1); setPlaying(false);
     } else {
       await Tone.start();
-      posRef.current = 0; t.position = 0; t.start();
+      posRef.current = 0; chainIdxRef.current = 0; t.position = 0; t.start();
       setPlaying(true);
     }
   }, [playing]);
@@ -772,7 +823,8 @@ export default function Groovebox() {
     const key = "tb16:" + n;
     if (saveMode) {
       try {
-        await storage.set(key, JSON.stringify({ name, pattern, params, master, mutes, root, chord }));
+        await storage.set(key, JSON.stringify({
+          name, banks, chain, song, bank, params, master, mutes, root, chord }));
         setSlots((s) => ({ ...s, [n]: true }));
         setReadout("GESPEICHERT AUF " + n);
       } catch (err) { setReadout("SPEICHERN FEHLGESCHLAGEN"); }
@@ -781,7 +833,18 @@ export default function Groovebox() {
       try {
         const r = await storage.get(key);
         const d = JSON.parse(r.value);
-        setPattern(d.pattern); setParams(d.params); setMaster(d.master);
+        if (d.banks) {
+          setBanks(d.banks);
+          setChain(d.chain || [null, null, null, null, null, null, null, null]);
+          setSong(!!d.song);
+          setBank(d.bank && d.banks[d.bank] ? d.bank : "A");
+        } else if (d.pattern) {
+          /* slots written before banks existed */
+          setBanks({ A: d.pattern, B: emptyPattern(), C: emptyPattern(), D: emptyPattern() });
+          setChain(["A", null, null, null, null, null, null, null]);
+          setSong(false); setBank("A");
+        }
+        setParams(d.params); setMaster(d.master);
         setMutes(d.mutes || {}); setRoot(d.root ?? 9); setChord(d.chord || "min7");
         setName(d.name || "SLOT " + n); setReadout("GELADEN VON " + n);
       } catch (err) { setReadout("SLOT " + n + " IST LEER"); }
@@ -805,6 +868,29 @@ export default function Groovebox() {
       try { await Tone.start(); fire(tid, Tone.now() + 0.02, 1); } catch (err) {}
     }
   };
+
+  const tapBank = (b) => {
+    if (copyArm) {
+      if (b !== bank) {
+        setBanks((x) => ({ ...x, [b]: JSON.parse(JSON.stringify(x[bank])) }));
+        setReadout("BANK " + bank + " KOPIERT NACH " + b);
+      } else setReadout("BANK " + b);
+      setCopyArm(false);
+    } else setReadout("BANK " + b);
+    setBank(b);
+  };
+
+  const cycleChain = (i) => {
+    setChain((c) => {
+      const next = c.slice();
+      const at = next[i] === null ? -1 : BANKS.indexOf(next[i]);
+      next[i] = at + 1 >= BANKS.length ? null : BANKS[at + 1];
+      return next;
+    });
+  };
+
+  const bankFilled = (b) =>
+    TRACKS.some((t) => banks[b] && banks[b][t.id].some((v) => v));
 
   const loadPreset = (pr) => {
     setPattern(pr.pattern);
@@ -862,7 +948,10 @@ export default function Groovebox() {
         </div>
 
         <div className="lcd">
-          <div className="l1"><span>PATTERN</span><span>{name}</span></div>
+          <div className="l1">
+            <span>BANK {playing ? playBank : bank}{song ? " \u00b7 SONG" : ""}</span>
+            <span>{name}</span>
+          </div>
           <div className="l2">{readout}</div>
           <div className="l3">
             <span>{playing ? "▶ LÄUFT" : "■ GESTOPPT"}</span>
@@ -1021,6 +1110,42 @@ export default function Groovebox() {
               {NOTES.map((n, i) => <option key={n} value={i}>{n} min</option>)}
             </select>
           </div>
+        </div>
+
+        <div className="panel">
+          <p className="hd">SONG</p>
+          <div className="bar">
+            <span className="lbl">BANK</span>
+            {BANKS.map((b) => (
+              <button key={b}
+                className={"btn" + (bank === b ? " act" : "") + (playing && playBank === b ? " now" : "")}
+                onClick={() => tapBank(b)}>
+                {b}{bankFilled(b) ? "" : " \u00b7"}
+              </button>
+            ))}
+            <button className={"btn" + (copyArm ? " act" : "")}
+              onClick={() => { setCopyArm((v) => !v); setReadout(copyArm ? "BEREIT" : "ZIELBANK W\u00c4HLEN"); }}>
+              {copyArm ? "ZIEL \u2026" : "KOPIEREN"}
+            </button>
+          </div>
+          <div className="bar" style={{ marginTop: 10 }}>
+            <button className={"btn" + (song ? " act" : "")}
+              onClick={() => { setSong((v) => !v); setReadout(song ? "LOOP" : "SONG"); }}>
+              {song ? "SONG AN" : "SONG AUS"}
+            </button>
+            <span className="lbl">KETTE</span>
+            {chain.map((c, i) => (
+              <button key={i}
+                className={"btn" + (chainAt === i ? " now" : "")}
+                aria-label={"Kettenplatz " + (i + 1)}
+                onClick={() => cycleChain(i)}>{c || "\u2013"}</button>
+            ))}
+          </div>
+          <p className="foot" style={{ textAlign: "left", marginTop: 8 }}>
+            A bis D sind vier eigene Patterns. Die Kette spielt sie der Reihe nach,
+            ein Platz pro Takt; Striche werden übersprungen. Bankwechsel greifen
+            immer erst zum nächsten Takt.
+          </p>
         </div>
 
         <div className="panel">
