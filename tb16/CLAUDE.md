@@ -64,6 +64,10 @@ Delay und Reverb hängen als Sends an den Kanal-Gains und speisen zurück in den
    `Tone.Transport`-Zugriffe ersetzen.
 8. Layout ist für 380 px Breite ausgelegt: Spurnamen 56 px, Steps 22 px hoch.
    Änderungen am Grid dort gegenprüfen.
+9. Die Zuweisungen `patRef.current = pattern` stehen bewusst im
+   Render-Pfad, damit der Audio-Callback nie veraltete Werte liest.
+   Der Lint-Hinweis dazu ist bekannt und bleibt. Nicht in `useEffect`
+   verschieben — das hinkt eine Renderrunde hinterher.
 
 ## Sprache
 
