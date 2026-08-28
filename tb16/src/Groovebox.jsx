@@ -66,6 +66,66 @@ const EDIT = {
   stab: [["cutoff", "CUTOFF", 300, 6000, 20, "Hz"], ["decay", "DECAY", 0.05, 1.2, 0.01, "s"], ...COMMON],
 };
 
+/* Four starting points per sound group. Timbre only — level, delay and reverb
+   stay untouched so applying one never disturbs the mix. Every value sits
+   inside the range its EDIT row allows. */
+const SOUND_PRESETS = {
+  kick: [
+    ["909 TROCKEN", { tune: 52, decay: 0.28, punch: 0.03 }],
+    ["SUB LANG",    { tune: 41, decay: 0.75, punch: 0.06 }],
+    ["KLICK HART",  { tune: 58, decay: 0.22, punch: 0.012 }],
+    ["RUND TIEF",   { tune: 44, decay: 0.5, punch: 0.075 }],
+  ],
+  bass: [
+    ["SUB WARM",    { cutoff: 180, reso: 2, decay: 0.35, gate: 0.9, glide: 0 }],
+    ["ROLLEND",     { cutoff: 380, reso: 5, decay: 0.16, gate: 0.5, glide: 0 }],
+    ["ACID SCHARF", { cutoff: 620, reso: 10.5, decay: 0.2, gate: 0.6, glide: 0.05 }],
+    ["ELECTRO SAW", { cutoff: 900, reso: 7, decay: 0.3, gate: 1, glide: 0.02 }],
+  ],
+  hat: [
+    ["TIGHT",       { tone: 9500, decay: 0.022 }],
+    ["METALLISCH",  { tone: 11000, decay: 0.03 }],
+    ["WEICH",       { tone: 6200, decay: 0.045 }],
+    ["LANG",        { tone: 7000, decay: 0.06 }],
+  ],
+  open: [
+    ["KURZ",        { tone: 9000, decay: 0.18 }],
+    ["ZISCHEND",    { tone: 11000, decay: 0.35 }],
+    ["DUNKEL",      { tone: 5500, decay: 0.45 }],
+    ["LANG",        { tone: 8000, decay: 0.6 }],
+  ],
+  clap: [
+    ["TROCKEN",     { tone: 1600, decay: 0.16, spread: 0.008 }],
+    ["BREIT",       { tone: 1100, decay: 0.42, spread: 0.03 }],
+    ["SCHARF",      { tone: 2400, decay: 0.2, spread: 0.012 }],
+    ["WEICH",       { tone: 900, decay: 0.3, spread: 0.022 }],
+  ],
+  rim: [
+    ["HOLZ",        { tone: 1500, decay: 0.025 }],
+    ["HOCH",        { tone: 3200, decay: 0.02 }],
+    ["WEICH",       { tone: 1200, decay: 0.06 }],
+    ["TICK",        { tone: 2600, decay: 0.015 }],
+  ],
+  shkr: [
+    ["FEIN",        { tone: 8000, decay: 0.05 }],
+    ["TROCKEN",     { tone: 7000, decay: 0.035 }],
+    ["LANG",        { tone: 5500, decay: 0.16 }],
+    ["RAUSCH",      { tone: 3500, decay: 0.22 }],
+  ],
+  perc: [
+    ["CONGA",       { tune: 260, decay: 0.28, punch: 0.03 }],
+    ["TOM TIEF",    { tune: 130, decay: 0.45, punch: 0.05 }],
+    ["BLOCK",       { tune: 480, decay: 0.1, punch: 0.012 }],
+    ["LANG",        { tune: 190, decay: 0.6, punch: 0.04 }],
+  ],
+  stab: [
+    ["KURZ",        { cutoff: 1400, decay: 0.12 }],
+    ["HELL",        { cutoff: 4200, decay: 0.18 }],
+    ["WEIT",        { cutoff: 2600, decay: 0.5 }],
+    ["FLÄCHE",      { cutoff: 1800, decay: 0.9 }],
+  ],
+};
+
 /* Sample voices are keyed by track, not by sound group: every lane holds its
    own file. Level / delay / reverb stay on the group channel, so they are not
    duplicated here. */
@@ -415,6 +475,7 @@ export default function Groovebox() {
   const [srcs, setSrcs] = useState({});      // track id -> "sample" | "synth"
   const [smpl, setSmpl] = useState({});      // track id -> DEFAULT_SMPL shape
   const [over, setOver] = useState(false);
+  const [sndPre, setSndPre] = useState({}); // sound group -> applied preset name
   const fileRef = useRef(null);
 
   const eng = useRef(null);
@@ -763,7 +824,18 @@ export default function Groovebox() {
   const grp = TRACKS.find((t) => t.id === sel).grp;
   const setP = (k, v) => {
     setParams((p) => ({ ...p, [grp]: { ...p[grp], [k]: v } }));
+    setSndPre((s) => (s[grp] ? { ...s, [grp]: null } : s)); // no longer the preset
     setReadout(TRACKS.find((t) => t.id === sel).label + " " + k.toUpperCase());
+  };
+
+  const applySound = async (name, vals) => {
+    setParams((p) => ({ ...p, [grp]: { ...p[grp], ...vals } }));
+    setSndPre((s) => ({ ...s, [grp]: name }));
+    setReadout(TRACKS.find((t) => t.id === sel).label + " \u00b7 " + name);
+    if (playing) return;
+    try { await Tone.start(); } catch (err) {}
+    /* let the params effect commit before auditioning */
+    setTimeout(() => { try { fire(sel, Tone.now() + 0.02, 1); } catch (err) {} }, 0);
   };
   const setM = (k, v) => { setMaster((m) => ({ ...m, [k]: v })); setReadout("MASTER " + k.toUpperCase()); };
 
@@ -861,6 +933,15 @@ export default function Groovebox() {
                 onClick={() => setSrcs((v) => ({ ...v, [sel]: "synth" }))}>SYNTH</button>
               <button className={"btn" + (isSmp ? " act" : "")}
                 onClick={() => setSrcs((v) => ({ ...v, [sel]: "sample" }))}>SAMPLE</button>
+            </div>
+          )}
+          {!isSmp && SOUND_PRESETS[grp] && (
+            <div className="pool" style={{ margin: "0 0 12px" }}>
+              {SOUND_PRESETS[grp].map(([name, vals]) => (
+                <button key={name}
+                  className={"chip" + (sndPre[grp] === name ? " act" : "")}
+                  onClick={() => applySound(name, vals)}>{name}</button>
+              ))}
             </div>
           )}
           <div className="ctrls">
