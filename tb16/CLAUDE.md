@@ -26,7 +26,9 @@ npm run build   # Produktions-Build
 | `EDIT` | Welche Regler der Sound-Editor je Gruppe zeigt: `[key, label, min, max, step, unit]` |
 | `PRESETS` | Fertige Patterns inkl. BPM, Swing und optionalen Parameter-Overrides |
 | `buildEngine()` | Baut den kompletten Tone-Graph einmalig auf und gibt alle Knoten zurück |
+| `DEFAULT_SMPL` / `EDIT_SMPL` | Startwerte und Regler für Sample-Spuren |
 | `fire(id, time, vel)` | Löst genau eine Stimme aus |
+| `playSample(id, time, vel)` | Spielt das zugewiesene Sample; `false`, wenn die Spur keins hat |
 | `tick(time)` | 16tel-Clock, per `scheduleRepeat` am Transport |
 | `Ctl` | Ein Regler (Label, Wert, Range-Input) |
 
@@ -42,6 +44,13 @@ Delay und Reverb hängen als Sends an den Kanal-Gains und speisen zurück in den
   Grundton = MIDI `24 + root`. Stab-Akkord = MIDI `48 + root` plus `CHORDS[chord]`.
 - `params` ist nach Sound-Gruppe geschlüsselt, nicht nach Track — `bass5` und
   `bass8` greifen auf `params.bass` zu.
+- Sample-State dagegen ist **pro Track** geschlüsselt, weil jede Spur eine
+  eigene Datei hält: `assign` (Track → Pool-Eintrag), `srcs` (Track →
+  `synth`/`sample`), `smpl` (Track → `pitch`/`start`/`len`).
+- Level, Delay und Reverb bleiben auch im Sample-Modus am Gruppen-Kanal und
+  kommen weiter aus `params` — nicht doppelt anlegen.
+- Geladene Samples liegen nur im Speicher. Nach einem Reload sind die
+  Zuweisungen weg; Patterns und Slots sind davon nicht betroffen.
 
 ## Regeln für Änderungen
 
@@ -54,8 +63,12 @@ Delay und Reverb hängen als Sends an den Kanal-Gains und speisen zurück in den
    Ref dazu — sonst liest der Callback veraltete Werte.
 4. **Das `try/catch` in `fire()` bleibt.** Eine geworfene Exception würde sonst
    die Clock anhalten.
-5. **Keine Sample-Dateien, keine Netzwerk-Requests.** Neue Sounds werden aus
-   Oszillatoren und Rauschen gebaut.
+5. **Zwei Quellen pro Spur: Synthese oder Sample.** Synthese ist der Standard
+   und bleibt die Quelle für Kick und Bass — durchstimmbar über alle Tonarten,
+   ohne Pitch-Artefakt. Samples lädt der Nutzer zur Laufzeit selbst.
+   Weiterhin gilt: keine Sample-Dateien im Repo, keine Netzwerk-Requests zu
+   Dritten. Neue *synthetische* Sounds werden aus Oszillatoren und Rauschen
+   gebaut.
 6. `window.storage` existiert nur in der Claude-Artifact-Umgebung. Lokal muss
    das durch `localStorage` ersetzt werden — bitte einmal sauber wegabstrahieren
    statt an mehreren Stellen zu verzweigen. Erledigt: der `storage`-Wrapper am

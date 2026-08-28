@@ -13,8 +13,8 @@ const TRACKS = [
   { id: "kick",  label: "KICK",   grp: "kick",  color: "#ff8a3d" },
   { id: "clap",  label: "CLAP",   grp: "clap",  color: "#ff5d7e" },
   { id: "rim",   label: "RIM",    grp: "rim",   color: "#b98cff" },
-  { id: "hat",   label: "HAT",    grp: "hat",   color: "#3fd8ff" },
-  { id: "open",  label: "OPEN",   grp: "open",  color: "#5aa8ff" },
+  { id: "hat",   label: "HAT",    grp: "hat",   color: "#3fd8ff", choke: "hh" },
+  { id: "open",  label: "OPEN",   grp: "open",  color: "#5aa8ff", choke: "hh" },
   { id: "shkr",  label: "SHKR",   grp: "shkr",  color: "#2fe0c0" },
   { id: "perc",  label: "PERC",   grp: "perc",  color: "#ffd23d" },
   { id: "bass",  label: "BASS",   grp: "bass",  color: "#9ae63c", interval: 0 },
@@ -65,6 +65,17 @@ const EDIT = {
   bass: [["cutoff", "CUTOFF", 60, 2600, 10, "Hz"], ["reso", "RESO", 0.5, 12, 0.1, ""], ["decay", "DECAY", 0.05, 0.8, 0.01, "s"], ["gate", "GATE", 0.2, 1.6, 0.05, ""], ["glide", "GLIDE", 0, 0.18, 0.005, "s"], ...COMMON],
   stab: [["cutoff", "CUTOFF", 300, 6000, 20, "Hz"], ["decay", "DECAY", 0.05, 1.2, 0.01, "s"], ...COMMON],
 };
+
+/* Sample voices are keyed by track, not by sound group: every lane holds its
+   own file. Level / delay / reverb stay on the group channel, so they are not
+   duplicated here. */
+const DEFAULT_SMPL = { pitch: 0, start: 0, len: 4 };
+
+const EDIT_SMPL = [
+  ["pitch", "PITCH", -24, 24, 1, "st"],
+  ["start", "START", 0, 0.5, 0.001, "s"],
+  ["len", "LENGTH", 0.02, 4, 0.01, "s"],
+];
 
 /* ---------------------------- patterns ---------------------------- */
 
@@ -277,8 +288,18 @@ function buildEngine() {
   }).connect(stabF);
   stab.volume.value = -14;
 
+  /* One player per track, routed into that track's group channel so the whole
+     send / duck / drive / master chain applies unchanged. The gain in front
+     carries per-hit velocity, which Tone.Player has no notion of. */
+  const smpl = {};
+  TRACKS.forEach((t) => {
+    const gain = new Tone.Gain(1).connect(ch[t.grp].gain);
+    const player = new Tone.Player({ fadeOut: 0.008 }).connect(gain);
+    smpl[t.id] = { player, gain };
+  });
+
   return {
-    limiter, comp, master, filter, drive, bus, delay, reverb, duck, ch,
+    limiter, comp, master, filter, drive, bus, delay, reverb, duck, ch, smpl,
     kick, clap, clapF, rim, rimF, hat, hatF, open, openF, shkr, shkrF, perc, bass, stab, stabF,
   };
 }
@@ -346,6 +367,16 @@ border-radius:7px;padding:6px 7px}
 .hd{font-size:8px;letter-spacing:.2em;color:var(--dim);margin:0 0 8px}
 .tb button:focus-visible,.tb input:focus-visible,.tb select:focus-visible{outline:2px solid #ffb454;outline-offset:2px}
 .foot{font-size:9px;line-height:1.6;color:var(--dim);text-align:center;letter-spacing:.04em}
+.pool{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.chip{font-family:inherit;font-size:9px;letter-spacing:.06em;color:var(--txt);background:#221e2c;
+border:1px solid var(--edge);border-radius:6px;padding:5px 8px;cursor:pointer;max-width:150px;
+overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip.act{background:#3a2a12;border-color:#8a6224;color:#ffcb7a}
+.drop{border:1px dashed rgba(255,255,255,.18);border-radius:8px;padding:12px 10px;text-align:center;
+font-size:9px;letter-spacing:.12em;color:var(--dim);cursor:pointer}
+.drop.over{border-color:#ffb454;color:#ffb454;background:rgba(255,180,84,.06)}
+.name.smp{color:#2fe0c0}
+.name.smp.sel{color:#7ffbe4}
 @media (prefers-reduced-motion:reduce){.tb *{transition:none!important}}
 `;
 
@@ -379,6 +410,12 @@ export default function Groovebox() {
   const [readout, setReadout] = useState("KICK");
   const [slots, setSlots] = useState({});
   const [saveMode, setSaveMode] = useState(false);
+  const [pool, setPool] = useState([]);      // loaded files: [{ id, name, buffer }]
+  const [assign, setAssign] = useState({});  // track id -> pool id
+  const [srcs, setSrcs] = useState({});      // track id -> "sample" | "synth"
+  const [smpl, setSmpl] = useState({});      // track id -> DEFAULT_SMPL shape
+  const [over, setOver] = useState(false);
+  const fileRef = useRef(null);
 
   const eng = useRef(null);
   const patRef = useRef(pattern);
@@ -386,6 +423,8 @@ export default function Groovebox() {
   const masRef = useRef(master);
   const mutRef = useRef(mutes);
   const musRef = useRef({ root, chord });
+  const srcRef = useRef(srcs);
+  const smpRef = useRef(smpl);
   const posRef = useRef(0);
 
   patRef.current = pattern;
@@ -393,6 +432,8 @@ export default function Groovebox() {
   masRef.current = master;
   mutRef.current = mutes;
   musRef.current = { root, chord };
+  srcRef.current = srcs;
+  smpRef.current = smpl;
 
   /* ---- build / dispose engine ---- */
   useEffect(() => {
@@ -405,7 +446,11 @@ export default function Groovebox() {
     return () => {
       try { t.clear(id); t.stop(); } catch (e) {}
       const e0 = eng.current;
-      if (e0) Object.values(e0).forEach((n) => {
+      if (e0) Object.values(e0.smpl || {}).forEach((v) => {
+        [v.player, v.gain].forEach((n) => { try { n.dispose(); } catch (e) {} });
+      });
+      if (e0) Object.entries(e0).forEach(([key, n]) => {
+        if (key === "smpl") return;
         if (n && typeof n.dispose === "function") { try { n.dispose(); } catch (e) {} }
         else if (n && n.gain && n.dly) { [n.gain, n.dly, n.rev].forEach((g) => { try { g.dispose(); } catch (e) {} }); }
         else if (n && typeof n === "object") Object.values(n).forEach((c) => {
@@ -417,6 +462,34 @@ export default function Groovebox() {
     // eslint-disable-next-line
   }, []);
 
+  /* ---- play an assigned sample; false when the lane has none ---- */
+  const playSample = useCallback((id, time, vel) => {
+    const e = eng.current; if (!e) return false;
+    const v = e.smpl[id];
+    if (!v || !v.player.loaded) return false;
+
+    const track = TRACKS.find((t) => t.id === id);
+    /* a closed hat cuts the open one, same as the synth path */
+    if (track.choke) {
+      TRACKS.forEach((o) => {
+        if (o.id === id || o.choke !== track.choke) return;
+        const ov = e.smpl[o.id];
+        if (ov && ov.player.loaded && ov.player.state === "started") {
+          try { ov.player.stop(time); } catch (err) {}
+        }
+      });
+    }
+
+    const sp = smpRef.current[id] || DEFAULT_SMPL;
+    const dur = v.player.buffer.duration;
+    const off = Math.min(sp.start, Math.max(0, dur - 0.01));
+    const len = Math.max(0.01, Math.min(sp.len, dur - off));
+    v.player.playbackRate = Math.pow(2, (sp.pitch + (track.interval || 0)) / 12);
+    v.gain.gain.setValueAtTime(vel, time);
+    v.player.start(time, off, len);
+    return true;
+  }, []);
+
   /* ---- trigger a single voice ---- */
   const fire = useCallback((id, time, vel) => {
     const e = eng.current; if (!e) return;
@@ -424,6 +497,7 @@ export default function Groovebox() {
     const m = musRef.current;
     const sixteenth = 60 / (masRef.current.bpm * 4);
     try {
+      if (srcRef.current[id] === "sample" && playSample(id, time, vel)) return;
       switch (id) {
         case "kick":
           e.kick.triggerAttackRelease(p.kick.tune, p.kick.decay, time, vel); break;
@@ -460,7 +534,7 @@ export default function Groovebox() {
         default: break;
       }
     } catch (err) { /* keep the clock running */ }
-  }, []);
+  }, [playSample]);
 
   /* ---- the 16th-note clock ---- */
   const tick = useCallback((time) => {
@@ -511,6 +585,16 @@ export default function Groovebox() {
     });
   }, [params]);
 
+  /* ---- hand the assigned buffers to the players ---- */
+  useEffect(() => {
+    const e = eng.current; if (!e) return;
+    TRACKS.forEach((t) => {
+      const v = e.smpl[t.id];
+      const item = pool.find((x) => x.id === assign[t.id]);
+      if (item && v.player.buffer !== item.buffer) v.player.buffer = item.buffer;
+    });
+  }, [assign, pool]);
+
   /* ---- apply master ---- */
   useEffect(() => {
     const e = eng.current; if (!e) return;
@@ -549,6 +633,39 @@ export default function Groovebox() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [toggle]);
+
+  /* ---- sample loading ---- */
+  const loadFiles = useCallback(async (files) => {
+    const list = Array.from(files || []);
+    if (!list.length) return;
+    setReadout("LADE " + list.length + " DATEI(EN) …");
+    const ctx = Tone.getContext();
+    const added = [];
+    for (const f of list) {
+      try {
+        const ab = await f.arrayBuffer();
+        const audio = typeof ctx.decodeAudioData === "function"
+          ? await ctx.decodeAudioData(ab)
+          : await ctx.rawContext.decodeAudioData(ab);
+        added.push({
+          id: f.name + ":" + f.size + ":" + Math.random().toString(36).slice(2, 7),
+          name: f.name.replace(/\.[^.]+$/, ""),
+          buffer: new Tone.ToneAudioBuffer(audio),
+        });
+      } catch (err) { /* skip anything the browser cannot decode */ }
+    }
+    if (!added.length) { setReadout("KEINE DATEI LESBAR"); return; }
+    setPool((prev) => [...prev, ...added]);
+    setReadout(added.length + " SAMPLE(S) GELADEN");
+  }, []);
+
+  const assignTo = (trackId, poolId) => {
+    const item = pool.find((x) => x.id === poolId);
+    setAssign((a) => ({ ...a, [trackId]: poolId }));
+    setSrcs((v) => ({ ...v, [trackId]: "sample" }));
+    setSmpl((v) => (v[trackId] ? v : { ...v, [trackId]: { ...DEFAULT_SMPL } }));
+    setReadout(TRACKS.find((t) => t.id === trackId).label + " \u2190 " + (item ? item.name : ""));
+  };
 
   /* ---- storage slots ---- */
   useEffect(() => {
@@ -622,8 +739,20 @@ export default function Groovebox() {
   };
   const setM = (k, v) => { setMaster((m) => ({ ...m, [k]: v })); setReadout("MASTER " + k.toUpperCase()); };
 
+  const isSmp = srcs[sel] === "sample";
+  const sp = smpl[sel] || DEFAULT_SMPL;
+  const setSP = (k, v) => {
+    setSmpl((x) => ({ ...x, [sel]: { ...(x[sel] || DEFAULT_SMPL), [k]: v } }));
+    setReadout(TRACKS.find((t) => t.id === sel).label + " " + k.toUpperCase());
+  };
+
   return (
-    <div className="tb">
+    <div
+      className="tb"
+      onDragOver={(ev) => { ev.preventDefault(); setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(ev) => { ev.preventDefault(); setOver(false); loadFiles(ev.dataTransfer.files); }}
+    >
       <style>{CSS}</style>
       <div className="wrap">
 
@@ -663,7 +792,10 @@ export default function Groovebox() {
           <div className="seq">
             {TRACKS.map((t) => (
               <div className="row" key={t.id}>
-                <button className={"name" + (sel === t.id ? " sel" : "")} onClick={() => selectTrack(t.id)}>
+                <button
+                  className={"name" + (sel === t.id ? " sel" : "") + (srcs[t.id] === "sample" ? " smp" : "")}
+                  onClick={() => selectTrack(t.id)}
+                >
                   {t.label}
                 </button>
                 <button
@@ -694,11 +826,33 @@ export default function Groovebox() {
 
         <div className="panel">
           <p className="hd">SOUND · {TRACKS.find((t) => t.id === sel).label}</p>
+          {assign[sel] && (
+            <div className="bar" style={{ marginBottom: 10 }}>
+              <span style={{ fontSize: 8, letterSpacing: ".16em", color: "#8b809a" }}>QUELLE</span>
+              <button className={"btn" + (isSmp ? "" : " act")}
+                onClick={() => setSrcs((v) => ({ ...v, [sel]: "synth" }))}>SYNTH</button>
+              <button className={"btn" + (isSmp ? " act" : "")}
+                onClick={() => setSrcs((v) => ({ ...v, [sel]: "sample" }))}>SAMPLE</button>
+            </div>
+          )}
           <div className="ctrls">
-            {EDIT[grp].map(([k, label, min, max, st, unit]) => (
-              <Ctl key={k} label={label} unit={unit} min={min} max={max} step={st}
-                value={params[grp][k]} onChange={(v) => setP(k, v)} />
-            ))}
+            {isSmp ? (
+              <>
+                {EDIT_SMPL.map(([k, label, min, max, st, unit]) => (
+                  <Ctl key={k} label={label} unit={unit} min={min} max={max} step={st}
+                    value={sp[k]} onChange={(v) => setSP(k, v)} />
+                ))}
+                {COMMON.map(([k, label, min, max, st, unit]) => (
+                  <Ctl key={k} label={label} unit={unit} min={min} max={max} step={st}
+                    value={params[grp][k]} onChange={(v) => setP(k, v)} />
+                ))}
+              </>
+            ) : (
+              EDIT[grp].map(([k, label, min, max, st, unit]) => (
+                <Ctl key={k} label={label} unit={unit} min={min} max={max} step={st}
+                  value={params[grp][k]} onChange={(v) => setP(k, v)} />
+              ))
+            )}
           </div>
           {grp === "stab" && (
             <div className="bar" style={{ marginTop: 10 }}>
@@ -707,6 +861,35 @@ export default function Groovebox() {
                 {Object.keys(CHORDS).map((c) => <option key={c} value={c}>{c.toUpperCase()}</option>)}
               </select>
             </div>
+          )}
+        </div>
+
+        <div className="panel">
+          <p className="hd">SAMPLES</p>
+          <div className={"drop" + (over ? " over" : "")} onClick={() => fileRef.current && fileRef.current.click()}>
+            {pool.length
+              ? "WAV / MP3 HIERHER ZIEHEN ODER KLICKEN"
+              : "NOCH KEINE SAMPLES \u2014 WAV / MP3 HIERHER ZIEHEN ODER KLICKEN"}
+          </div>
+          <input
+            ref={fileRef} type="file" accept="audio/*" multiple
+            style={{ display: "none" }}
+            onChange={(ev) => { loadFiles(ev.target.files); ev.target.value = ""; }}
+          />
+          {pool.length > 0 && (
+            <>
+              <div className="pool">
+                {pool.map((x) => (
+                  <button key={x.id}
+                    className={"chip" + (assign[sel] === x.id ? " act" : "")}
+                    title={x.name}
+                    onClick={() => assignTo(sel, x.id)}>{x.name}</button>
+                ))}
+              </div>
+              <p className="foot" style={{ marginTop: 8, textAlign: "left" }}>
+                Sample antippen, um es auf {TRACKS.find((t) => t.id === sel).label} zu legen.
+              </p>
+            </>
           )}
         </div>
 
