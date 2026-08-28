@@ -65,6 +65,11 @@ Delay und Reverb hängen als Sends an den Kanal-Gains und speisen zurück in den
 8. Layout ist für 380 px Breite ausgelegt: Spurnamen 56 px, Steps 22 px hoch.
    Änderungen am Grid dort gegenprüfen.
 
+## Sprache
+
+Antworte auf Deutsch, auch wenn Code und Fehlermeldungen englisch sind.
+Code, Bezeichner, Code-Kommentare und Commit-Messages bleiben englisch.
+
 ## Arbeitsweise
 
 - Kleine Diffs, ein Thema pro Durchgang. Nicht ungefragt umbauen oder „aufräumen".
