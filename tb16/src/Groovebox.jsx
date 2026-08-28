@@ -24,7 +24,29 @@ const TRACKS = [
 ];
 
 const BANKS = ["A", "B", "C", "D"];
-const CHAIN_LEN = 8;
+
+/* A classic techno arrangement: long uncluttered intro and outro so a DJ can
+   mix in and out, a breakdown that drops the kick, and a peak that is simply
+   held. Every section is a multiple of eight bars, which is the convention the
+   whole genre counts in. At 140 BPM these 208 bars run just under six minutes. */
+const ARR_TEMPLATE = () => [
+  { name: "INTRO", bank: "A", bars: 32, note:
+    "Nur Kick und Hats, aufgeräumt und lang. Der DJ braucht diese Zeit zum Einmixen. Alle 16 Takte ein Element dazu, sonst passiert hier bewusst wenig." },
+  { name: "AUFBAU", bank: "A", bars: 16, note:
+    "Percussion kommt dazu: Shaker, Rim, Open Hat. Master-Filter langsam öffnen. Noch kein Bass — die Spannung lebt davon, dass er fehlt." },
+  { name: "GROOVE", bank: "B", bars: 32, note:
+    "Der Bass setzt ein. Ab hier steht der eigentliche Track. Bei Tech House passiert alles Wesentliche zwischen den Kicks, nicht auf ihnen." },
+  { name: "BREAK", bank: "C", bars: 16, note:
+    "Kick raus, Stab und Reverb bleiben. Der Moment zum Durchatmen. Delay-Feedback hochziehen, Master-Filter etwas schließen." },
+  { name: "STEIGERUNG", bank: "C", bars: 16, note:
+    "Hats auf 16tel verdichten, Filter aufziehen, Clap dazu. Spannung ohne Kick — je länger du ihn weglässt, desto härter trifft er danach." },
+  { name: "PEAK", bank: "D", bars: 48, note:
+    "Alles drin. Der längste Abschnitt des Tracks — hier bleibt man. Veränderung nur in kleinen Dosen, ein Element rein oder raus pro 16 Takte." },
+  { name: "GROOVE 2", bank: "B", bars: 32, note:
+    "Zurück zum Kern, aber nicht identisch: ein Element weglassen wirkt hier besser als eines dazu." },
+  { name: "OUTRO", bank: "A", bars: 16, note:
+    "Das Intro rückwärts. Elemente nach und nach rausnehmen, am Ende nur Kick und Percussion, damit sauber weggemixt werden kann." },
+];
 
 const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const CHORDS = {
@@ -439,6 +461,23 @@ overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 font-size:9px;letter-spacing:.12em;color:var(--dim);cursor:pointer}
 .drop.over{border-color:#ffb454;color:#ffb454;background:rgba(255,180,84,.06)}
 .lbl{font-size:8px;letter-spacing:.16em;color:var(--dim)}
+.arr{display:flex;flex-direction:column;gap:2px;margin-top:10px}
+.sec{display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:center;
+padding:6px 7px;border-radius:7px;border:1px solid transparent;background:rgba(255,255,255,.03);cursor:pointer}
+.sec.sel{background:#241f30;border-color:var(--edge)}
+.sec.now{border-color:#2fe0c0;box-shadow:0 0 8px rgba(47,224,192,.25)}
+.sec b{font-size:9px;letter-spacing:.14em;font-weight:400;color:var(--txt)}
+.sec.now b{color:#7ffbe4}
+.bars{display:inline-flex;align-items:center;gap:5px}
+.bars i{font-style:normal;font-size:10px;color:var(--lcd);min-width:18px;text-align:center;
+font-variant-numeric:tabular-nums}
+.mini{font-family:inherit;font-size:9px;line-height:1;color:var(--txt);background:#221e2c;
+border:1px solid var(--edge);border-radius:5px;padding:4px 7px;cursor:pointer}
+.mini:hover{background:#2d2739}
+.dur{font-size:9px;color:var(--dim);min-width:34px;text-align:right;font-variant-numeric:tabular-nums}
+.sec.now .dur{color:#7ffbe4}
+.note{font-size:10px;line-height:1.65;color:var(--txt);margin:10px 0 0;padding:9px 11px;
+background:rgba(255,180,84,.06);border-left:2px solid var(--lcd);border-radius:0 7px 7px 0}
 .btn.now{border-color:#2fe0c0;color:#7ffbe4;box-shadow:0 0 8px rgba(47,224,192,.35)}
 .name.smp{color:#2fe0c0}
 .name.smp.sel{color:#7ffbe4}
@@ -466,10 +505,12 @@ export default function Groovebox() {
     A: PRESETS[0].pattern, B: emptyPattern(), C: emptyPattern(), D: emptyPattern(),
   }));
   const [bank, setBank] = useState("A");          // the bank being edited
-  const [chain, setChain] = useState(() => ["A", "A", "B", "A", null, null, null, null]);
+  const [arr, setArr] = useState(ARR_TEMPLATE);
+  const [secSel, setSecSel] = useState(0);   // section whose note is shown
+  const [secAt, setSecAt] = useState(-1);    // section being played
+  const [barAt, setBarAt] = useState(0);     // bar within that section
   const [song, setSong] = useState(false);
   const [playBank, setPlayBank] = useState("A");  // the bank currently sounding
-  const [chainAt, setChainAt] = useState(-1);     // slot of the chain being played
   const [copyArm, setCopyArm] = useState(false);
 
   /* Everything downstream still works on one pattern; it is just the selected
@@ -506,10 +547,11 @@ export default function Groovebox() {
   const musRef = useRef({ root, chord });
   const bnkRef = useRef(banks);
   const selBankRef = useRef(bank);
-  const chainRef = useRef(chain);
+  const arrRef = useRef(arr);
   const songRef = useRef(song);
   const nowBankRef = useRef("A");   // bank the clock is reading
-  const chainIdxRef = useRef(0);    // position within the filtered chain
+  const secIdxRef = useRef(0);      // section the clock is in
+  const barIdxRef = useRef(0);      // bar within that section
   const srcRef = useRef(srcs);
   const smpRef = useRef(smpl);
   const posRef = useRef(0);
@@ -521,7 +563,7 @@ export default function Groovebox() {
   musRef.current = { root, chord };
   bnkRef.current = banks;
   selBankRef.current = bank;
-  chainRef.current = chain;
+  arrRef.current = arr;
   songRef.current = song;
   srcRef.current = srcs;
   smpRef.current = smpl;
@@ -663,17 +705,22 @@ export default function Groovebox() {
     /* Bank changes land on the bar line, never mid-pattern. In song mode the
        chain advances one slot per bar; empty slots are skipped. */
     if (s === 0) {
-      const seq = chainRef.current
-        .map((c, i) => ({ c, i }))
-        .filter((x) => x.c && bnkRef.current[x.c]);
-      if (songRef.current && seq.length) {
-        if (posRef.current > 0) chainIdxRef.current = (chainIdxRef.current + 1) % seq.length;
-        const at = seq[chainIdxRef.current % seq.length];
-        nowBankRef.current = at.c;
-        getD().schedule(() => setChainAt(at.i), time);
+      const sections = arrRef.current;
+      if (songRef.current && sections.length) {
+        if (posRef.current > 0) {
+          barIdxRef.current += 1;
+          if (barIdxRef.current >= (sections[secIdxRef.current] || {}).bars) {
+            barIdxRef.current = 0;
+            secIdxRef.current = (secIdxRef.current + 1) % sections.length;
+          }
+        }
+        const sec = sections[secIdxRef.current];
+        nowBankRef.current = bnkRef.current[sec.bank] ? sec.bank : selBankRef.current;
+        const si = secIdxRef.current, bi = barIdxRef.current;
+        getD().schedule(() => { setSecAt(si); setBarAt(bi); }, time);
       } else {
         nowBankRef.current = selBankRef.current;
-        getD().schedule(() => setChainAt(-1), time);
+        getD().schedule(() => setSecAt(-1), time);
       }
       const nb = nowBankRef.current;
       getD().schedule(() => setPlayBank((b) => (b === nb ? b : nb)), time);
@@ -754,11 +801,12 @@ export default function Groovebox() {
   const toggle = useCallback(async () => {
     const t = getT();
     if (playing) {
-      t.stop(); posRef.current = 0; chainIdxRef.current = 0;
-      setStep(-1); setChainAt(-1); setPlaying(false);
+      t.stop(); posRef.current = 0; secIdxRef.current = 0; barIdxRef.current = 0;
+      setStep(-1); setSecAt(-1); setBarAt(0); setPlaying(false);
     } else {
       await Tone.start();
-      posRef.current = 0; chainIdxRef.current = 0; t.position = 0; t.start();
+      posRef.current = 0; secIdxRef.current = 0; barIdxRef.current = 0;
+      t.position = 0; t.start();
       setPlaying(true);
     }
   }, [playing]);
@@ -824,7 +872,7 @@ export default function Groovebox() {
     if (saveMode) {
       try {
         await storage.set(key, JSON.stringify({
-          name, banks, chain, song, bank, params, master, mutes, root, chord }));
+          name, banks, arr, song, bank, params, master, mutes, root, chord }));
         setSlots((s) => ({ ...s, [n]: true }));
         setReadout("GESPEICHERT AUF " + n);
       } catch (err) { setReadout("SPEICHERN FEHLGESCHLAGEN"); }
@@ -835,13 +883,18 @@ export default function Groovebox() {
         const d = JSON.parse(r.value);
         if (d.banks) {
           setBanks(d.banks);
-          setChain(d.chain || [null, null, null, null, null, null, null, null]);
+          if (d.arr) setArr(d.arr);
+          else if (d.chain) {
+            /* slots written when the chain was eight single bars */
+            setArr(d.chain.filter(Boolean).map((b, i) => ({
+              name: "TEIL " + (i + 1), bank: b, bars: 1, note: "",
+            })));
+          }
           setSong(!!d.song);
           setBank(d.bank && d.banks[d.bank] ? d.bank : "A");
         } else if (d.pattern) {
           /* slots written before banks existed */
           setBanks({ A: d.pattern, B: emptyPattern(), C: emptyPattern(), D: emptyPattern() });
-          setChain(["A", null, null, null, null, null, null, null]);
           setSong(false); setBank("A");
         }
         setParams(d.params); setMaster(d.master);
@@ -880,14 +933,24 @@ export default function Groovebox() {
     setBank(b);
   };
 
-  const cycleChain = (i) => {
-    setChain((c) => {
-      const next = c.slice();
-      const at = next[i] === null ? -1 : BANKS.indexOf(next[i]);
-      next[i] = at + 1 >= BANKS.length ? null : BANKS[at + 1];
-      return next;
-    });
+  const editSec = (i, patch) =>
+    setArr((a) => a.map((sc, k) => (k === i ? { ...sc, ...patch } : sc)));
+
+  const cycleSecBank = (i) => {
+    const at = BANKS.indexOf(arr[i].bank);
+    editSec(i, { bank: BANKS[(at + 1) % BANKS.length] });
   };
+
+  /* Sections move in steps of eight bars — that is the grid the genre counts in. */
+  const addBars = (i, d) =>
+    editSec(i, { bars: Math.max(8, Math.min(64, arr[i].bars + d)) });
+
+  const barSeconds = 4 * (60 / master.bpm);
+  const clock = (bars) => {
+    const t = Math.round(bars * barSeconds);
+    return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0");
+  };
+  const totalBars = arr.reduce((n, sc) => n + sc.bars, 0);
 
   const bankFilled = (b) =>
     TRACKS.some((t) => banks[b] && banks[b][t.id].some((v) => v));
@@ -1130,21 +1193,46 @@ export default function Groovebox() {
           </div>
           <div className="bar" style={{ marginTop: 10 }}>
             <button className={"btn" + (song ? " act" : "")}
-              onClick={() => { setSong((v) => !v); setReadout(song ? "LOOP" : "SONG"); }}>
-              {song ? "SONG AN" : "SONG AUS"}
+              onClick={() => { setSong((v) => !v); setReadout(song ? "LOOP" : "ARRANGEMENT"); }}>
+              {song ? "ARRANGEMENT AN" : "ARRANGEMENT AUS"}
             </button>
-            <span className="lbl">KETTE</span>
-            {chain.map((c, i) => (
-              <button key={i}
-                className={"btn" + (chainAt === i ? " now" : "")}
-                aria-label={"Kettenplatz " + (i + 1)}
-                onClick={() => cycleChain(i)}>{c || "\u2013"}</button>
+            <button className="btn" onClick={() => {
+              setArr(ARR_TEMPLATE());
+              setMaster((m) => ({ ...m, bpm: 140 }));
+              setSecSel(0);
+              setReadout("TECHNO 140 GELADEN");
+            }}>TECHNO 140</button>
+            <span className="lbl">GESAMT {clock(totalBars)} · {totalBars} TAKTE</span>
+          </div>
+
+          <div className="arr">
+            {arr.map((sc, i) => (
+              <div key={sc.name + i}
+                className={"sec" + (secSel === i ? " sel" : "") + (secAt === i ? " now" : "")}
+                onClick={() => setSecSel(i)}>
+                <b>{sc.name}</b>
+                <button className="mini" aria-label={sc.name + " Bank"}
+                  onClick={(ev) => { ev.stopPropagation(); cycleSecBank(i); }}>{sc.bank}</button>
+                <span className="bars">
+                  <button className="mini" aria-label="Weniger Takte"
+                    onClick={(ev) => { ev.stopPropagation(); addBars(i, -8); }}>−</button>
+                  <i>{sc.bars}</i>
+                  <button className="mini" aria-label="Mehr Takte"
+                    onClick={(ev) => { ev.stopPropagation(); addBars(i, 8); }}>+</button>
+                </span>
+                <span className="dur">{secAt === i ? barAt + 1 + "/" + sc.bars : clock(sc.bars)}</span>
+              </div>
             ))}
           </div>
+
+          {arr[secSel] && arr[secSel].note && (
+            <p className="note">{arr[secSel].note}</p>
+          )}
+
           <p className="foot" style={{ textAlign: "left", marginTop: 8 }}>
-            A bis D sind vier eigene Patterns. Die Kette spielt sie der Reihe nach,
-            ein Platz pro Takt; Striche werden übersprungen. Bankwechsel greifen
-            immer erst zum nächsten Takt.
+            Jeder Abschnitt spielt eine Bank über die angegebene Zahl Takte.
+            Abschnitt antippen für den Hinweis dazu. Bankwechsel greifen immer
+            erst zur nächsten Taktgrenze.
           </p>
         </div>
 

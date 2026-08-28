@@ -31,6 +31,7 @@ npm run build   # Produktions-Build
 | `playSample(id, time, vel)` | Spielt das zugewiesene Sample; `false`, wenn die Spur keins hat |
 | `tick(time)` | 16tel-Clock, per `scheduleRepeat` am Transport |
 | `SOUND_PRESETS` | Vier Klang-Startpunkte je Gruppe, nur Klangfarbe |
+| `ARR_TEMPLATE()` | Klassischer Techno-Aufbau als Abschnittsliste, 208 Takte |
 | `Ctl` | Ein Regler (Label, Wert, Range-Input) |
 
 Signalweg: Stimme → Kanal-Gain → (Bass und Stab zusätzlich über `duck`) → `bus`
@@ -43,9 +44,12 @@ Delay und Reverb hängen als Sends an den Kanal-Gains und speisen zurück in den
   gerade gewählte Bank, `setPattern` schreibt in sie zurück — alles
   Nachgelagerte (Sequencer, Presets, Würfeln, Slots) arbeitet unverändert
   auf `pattern`.
-- `chain` sind acht Plätze mit je einer Bank oder `null`. Im Song-Mode rückt
-  die Kette pro Takt einen belegten Platz weiter; Bankwechsel greifen immer
-  erst zur Taktgrenze, nie mitten im Pattern.
+- `arr` ist das Arrangement: eine Liste von Abschnitten mit `name`, `bank`,
+  `bars` und `note`. Im Arrangement-Modus zählt die Uhr Takte innerhalb des
+  Abschnitts und rückt danach weiter. Bankwechsel greifen immer erst zur
+  Taktgrenze, nie mitten im Pattern.
+- Taktzahlen bleiben Vielfache von acht — das ist das Raster, in dem das
+  Genre zählt, und `addBars` erzwingt es.
 - `pattern` ist ein Objekt: Track-ID → Array mit 16 Zahlen.
 - Werte: `0` aus, `1` an, `2` Akzent. Velocity dazu: `0.72` bzw. `1.0`.
 - Bass-Lanes teilen sich eine MonoSynth-Stimme, Intervalle 0 / 7 / 12 Halbtöne,
