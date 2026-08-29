@@ -1,25 +1,58 @@
 # KOMPASS starten
 
-Fünf Schritte. Wenn einer klemmt, steht die Antwort unter *Wenn etwas nicht geht*.
+Sechs Schritte, Schritt 0 nur beim ersten Mal. Wenn einer klemmt, steht die Antwort unter
+*Wenn etwas nicht geht*.
 
 ---
 
-## Voraussetzung
+> **Beim Kopieren:** Immer nur die Befehlszeilen einfügen, nie einen Kommentar dahinter.
+> Die zsh auf dem Mac behandelt `#` interaktiv **nicht** als Kommentar — alles dahinter landet
+> als Argument beim Befehl. Deshalb steht in dieser Anleitung in keinem Block ein Kommentar.
 
-**Node 20 oder neuer.** Prüfen mit:
+---
 
-```bash
+## 0 · Node installieren
+
+KOMPASS braucht **Node 20 oder neuer**. `npm` kommt zusammen mit Node — wenn `npm` nicht
+gefunden wird, fehlt Node.
+
+Prüfen:
+
+```
 node --version
 ```
 
-Kommt eine Fehlermeldung oder eine Zahl kleiner als 20: [nodejs.org](https://nodejs.org) →
-LTS-Version installieren → Terminal neu öffnen.
+Steht dort `v20.` oder höher, überspring diesen Schritt.
+
+### macOS
+
+Erst den Prozessor bestimmen:
+
+```
+uname -m
+```
+
+`arm64` heißt Apple Silicon (M1 bis M4), `x86_64` heißt Intel.
+
+Dann auf [nodejs.org](https://nodejs.org) die **LTS**-Version laden, den passenden
+**macOS Installer (.pkg)** wählen, öffnen und durchklicken.
+
+Danach **ein neues Terminal-Fenster öffnen** — das alte kennt den neuen Pfad noch nicht — und
+erneut `node --version` prüfen.
+
+Wer Homebrew hat, kann stattdessen `brew install node` verwenden.
+
+### Windows
+
+Auf [nodejs.org](https://nodejs.org) die **LTS**-Version als **Windows Installer (.msi)** laden.
+Beim Installieren die Option *Tools for Native Modules* mit anhaken — das erspart später den
+häufigsten Installationsfehler. Danach die Eingabeaufforderung neu öffnen.
 
 ---
 
 ## 1 · Projekt holen
 
-```bash
+```
 git clone https://github.com/Nicodinioh/ai-webapp.git
 cd ai-webapp
 git checkout claude/research-organization-platform-p159u8
@@ -27,7 +60,7 @@ git checkout claude/research-organization-platform-p159u8
 
 Wenn du das Projekt schon hast:
 
-```bash
+```
 cd ai-webapp
 git checkout claude/research-organization-platform-p159u8
 git pull
@@ -35,7 +68,7 @@ git pull
 
 ## 2 · Abhängigkeiten installieren
 
-```bash
+```
 npm install
 ```
 
@@ -44,7 +77,7 @@ Dauert beim ersten Mal ein bis zwei Minuten. Warnungen sind normal, Fehler nicht
 ## 3 · Zugangsdaten anlegen
 
 **macOS / Linux**
-```bash
+```
 cp .env.example .env
 ```
 
@@ -68,7 +101,7 @@ Den Schlüssel bekommst du auf [console.anthropic.com](https://console.anthropic
 
 ## 4 · Prüfen, ob alles bereitsteht
 
-```bash
+```
 npm run doctor
 ```
 
@@ -77,7 +110,7 @@ Beim ersten Problem steht dort, was zu tun ist.
 
 ## 5 · Beispieldaten und Start
 
-```bash
+```
 npm run seed
 npm run dev
 ```
@@ -115,6 +148,15 @@ weißt nur du, nachdem du es einmal gemacht hast.
 
 ## Wenn etwas nicht geht
 
+**`zsh: command not found: npm`**
+Node ist nicht installiert oder das Terminal kennt es noch nicht. Schritt 0 oben — und danach
+zwingend ein **neues** Terminal-Fenster öffnen.
+
+**`cp: .env is not a directory`**
+Da wurde ein Kommentar mitkopiert. Die zsh behandelt `#` interaktiv nicht als Kommentar, also
+bekommt `cp` alles dahinter als weitere Argumente. Nur die Befehlszeile einfügen:
+`cp .env.example .env`
+
 **`npm install` bricht bei better-sqlite3 ab**
 Auf Windows fehlen dann meist die Build-Tools. Erst versuchen:
 `npm cache clean --force` und `npm install` erneut. Hilft das nicht, Node über den offiziellen
@@ -125,7 +167,7 @@ Ein anderes Programm belegt den Port. Entweder beenden, oder in `vite.config.ts`
 `port: 5173` auf einen freien Wert ändern.
 
 **Der API-Port 5177 ist belegt**
-```bash
+```
 PORT=5200 npm run dev
 ```
 Windows PowerShell: `$env:PORT=5200; npm run dev`

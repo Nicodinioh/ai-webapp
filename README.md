@@ -29,21 +29,30 @@ Sie ist die Kennzahl, an der sich substanzielle Aufsicht von Aufsichtstheater un
 
 ## Schnellstart
 
-```bash
-npm install
-cp .env.example .env          # ANTHROPIC_API_KEY eintragen
-npm run doctor                # prüft Node, Schlüssel, Ports
-npm run seed                  # optional: Beispielarbeit mit Kapitelstruktur
-npm run dev                   # http://localhost:5173
+Voraussetzung ist **Node 20 oder neuer** (`node --version`). Fehlt es, zuerst
+[nodejs.org](https://nodejs.org) → LTS installieren → neues Terminal öffnen.
+
 ```
+npm install
+cp .env.example .env
+npm run doctor
+npm run seed
+npm run dev
+```
+
+Danach http://localhost:5173. `.env` braucht den `ANTHROPIC_API_KEY`; `npm run doctor` prüft
+Node-Version, Schlüssel und Ports; `npm run seed` legt die Beispielarbeit an.
 
 Ausführliche Anleitung mit Fehlerbildern und einem ersten Rundgang: **[SCHNELLSTART.md](SCHNELLSTART.md)**
 
 Produktion:
 
-```bash
-npm run build && npm start    # http://localhost:5177
 ```
+npm run build
+npm start
+```
+
+Danach http://localhost:5177.
 
 **Ohne API-Schlüssel** läuft alles außer den Agenten: Quellen erfassen, PDF-Volltext extrahieren,
 Kapitel und Aufgaben pflegen, Belegstellen sammeln. Die Agenten antworten dann mit einem klar
