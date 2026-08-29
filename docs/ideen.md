@@ -235,6 +235,12 @@ ADG-Produkt:
 | Anmeldung | keine | zwingend, mit Mandantentrennung |
 | Nachweis | dein Anhang | Prüfungsordnungs-Artefakt mit festem Format |
 
+**Nachtrag 29.08. — der Anlass ist konkreter geworden.** Mit dem Betrieb auf einem eigenen
+Server (`docs/betrieb.md`) wird die Frage praktisch: Ein Reverse Proxy mit einem geteilten
+Passwort trägt genau einen Nutzer. Sobald ein zweiter Mensch dazukommt, fehlen Benutzerkonten,
+Mandantentrennung und ein Nachweis, der pro Person abgrenzt. Bis dahin ist das Passwort die
+ehrliche Lösung — aber es ist eine Tür, kein Schloss.
+
 **Warum die Entscheidung noch nicht fällig ist.** Das einzige, was teuer nachzurüsten wäre, sind
 Anmeldung und Mandantentrennung — und die sind billig zu verschieben, weil `projects` als Tabelle
 bereits existiert und alles daran hängt. Alles andere (Wissensbasen, Seed-Daten, Kapitelstruktur)

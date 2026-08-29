@@ -1,0 +1,40 @@
+# Reverse Proxy für KOMPASS.
+#
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# Caddy holt das Zertifikat selbst über Let's Encrypt. Voraussetzung: Der Name
+# zeigt auf diesen Server und die Ports 80 und 443 sind offen.
+#
+# Passwort-Hash erzeugen:
+#   caddy hash-password
+# Die Ausgabe beginnt mit $2a$ und kommt unverändert unten hinein.
+
+srv1803271.hstgr.cloud {
+	encode zstd gzip
+
+	# Die Anwendung hat keine eigene Anmeldung. Diese Zeilen sind die einzige
+	# Zugangskontrolle - ohne sie kann jeder, der die Adresse kennt, Quellen
+	# lesen, Dateien hochladen und Agentenläufe auf deine Kosten starten.
+	# Caddy vor 2.7 nennt die Direktive `basicauth` statt `basic_auth`.
+	basic_auth {
+		nicolas HASH_HIER_EINSETZEN
+	}
+
+	# Etwas über dem 80-MB-Limit der Anwendung, damit sie selbst antworten kann.
+	request_body {
+		max_size 100MB
+	}
+
+	reverse_proxy 127.0.0.1:5177 {
+		# Lange Agentenläufe dürfen nicht abgeschnitten werden.
+		transport http {
+			response_header_timeout 15m
+			read_timeout 15m
+		}
+	}
+
+	log {
+		output file /var/log/caddy/kompass.log
+	}
+}

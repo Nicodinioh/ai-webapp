@@ -29,8 +29,24 @@ if (fs.existsSync(dist)) {
 }
 
 const port = Number(process.env.PORT) || 5177
-app.listen(port, () => {
-  console.log(`KOMPASS API auf http://localhost:${port}`)
+
+/**
+ * Standardmaessig nur lokal erreichbar. Die Anwendung hat keine eigene
+ * Anmeldung - im Netz gehoert ein Reverse Proxy davor, der die Zugangskontrolle
+ * uebernimmt (siehe docs/betrieb.md). Wer bewusst direkt exponieren will, setzt
+ * HOST=0.0.0.0.
+ */
+const host = process.env.HOST || '127.0.0.1'
+
+app.listen(port, host, () => {
+  console.log(`KOMPASS API auf http://${host}:${port}`)
+  if (host === '0.0.0.0') {
+    console.warn(
+      'WARNUNG: Der Server ist ohne Zugangskontrolle im Netz erreichbar. ' +
+        'Jeder, der die Adresse kennt, kann Quellen lesen, Dateien hochladen und ' +
+        'Agentenlaeufe auf deine Kosten starten.',
+    )
+  }
   console.log(
     hasApiKey()
       ? `Agenten aktiv, Modell ${MODEL}`

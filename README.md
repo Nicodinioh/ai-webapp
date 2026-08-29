@@ -44,6 +44,10 @@ Danach http://localhost:5173. `.env` braucht den `ANTHROPIC_API_KEY`; `npm run d
 Node-Version, Schlüssel und Ports; `npm run seed` legt die Beispielarbeit an.
 
 Ausführliche Anleitung mit Fehlerbildern und einem ersten Rundgang: **[SCHNELLSTART.md](SCHNELLSTART.md)**
+Betrieb auf einem eigenen Server: **[docs/betrieb.md](docs/betrieb.md)**
+
+> Der Server bindet standardmäßig nur auf `127.0.0.1`. Die Anwendung hat **keine eigene
+> Anmeldung** — im Netz gehört eine Zugangskontrolle davor. Wie, steht in `docs/betrieb.md`.
 
 Produktion:
 
