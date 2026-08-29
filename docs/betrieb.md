@@ -69,21 +69,27 @@ node --version
 
 Da muss `v22.` stehen.
 
-Einen eigenen Dienstnutzer anlegen. Die Anwendung läuft **nicht** als root:
-
-```
-adduser --system --group --home /opt/kompass kompass
-```
-
 ## 2 · Code holen und bauen
+
+Erst klonen, **dann** den Dienstnutzer anlegen. Andersherum gehört `/opt/kompass` bereits dem
+Nutzer `kompass`, während git als root läuft — git verweigert dann mit
+`detected dubious ownership` den Dienst.
 
 ```
 cd /opt
 git clone https://github.com/Nicodinioh/ai-webapp.git kompass
 cd /opt/kompass
 git checkout claude/research-organization-platform-p159u8
+```
+
+Jetzt den Dienstnutzer anlegen. Die Anwendung läuft **nicht** als root:
+
+```
+adduser --system --group --home /opt/kompass kompass
 chown -R kompass:kompass /opt/kompass
 ```
+
+Die Meldung, dass das Heimatverzeichnis schon existiert, ist erwartet und kein Fehler.
 
 Als Dienstnutzer installieren und bauen:
 
@@ -282,6 +288,15 @@ der Schlüssel ohne Anführungszeichen darin steht. Nach jeder Änderung `system
 **Ein Agentenlauf bricht nach einer Minute ab**
 Wenn du hinter einem anderen Proxy als Caddy sitzt: dessen Zeitlimit hochsetzen. Läufe über
 Volltexte dauern Minuten. Im mitgelieferten Caddyfile stehen dafür 15 Minuten.
+
+**`fatal: detected dubious ownership in repository at '/opt/kompass'`**
+Das Verzeichnis gehört einem anderen Nutzer als dem, der git aufruft. Als root einmalig
+freigeben, dann weiterarbeiten:
+```
+git config --global --add safe.directory /opt/kompass
+```
+Nach dem `chown` in Schritt 2 gehört alles dem Nutzer `kompass`; spätere git-Befehle laufen über
+`sudo -u kompass -H` und sind davon nicht betroffen.
 
 **`npm install` scheitert mit `EACCES` auf `/root/.npm`**
 Dann fehlt `-H` bei `sudo`. Ohne diese Option behält der Befehl `HOME=/root`, und npm versucht,
