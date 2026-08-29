@@ -32,9 +32,12 @@ Sie ist die Kennzahl, an der sich substanzielle Aufsicht von Aufsichtstheater un
 ```bash
 npm install
 cp .env.example .env          # ANTHROPIC_API_KEY eintragen
+npm run doctor                # prüft Node, Schlüssel, Ports
 npm run seed                  # optional: Beispielarbeit mit Kapitelstruktur
 npm run dev                   # http://localhost:5173
 ```
+
+Ausführliche Anleitung mit Fehlerbildern und einem ersten Rundgang: **[SCHNELLSTART.md](SCHNELLSTART.md)**
 
 Produktion:
 

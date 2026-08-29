@@ -264,5 +264,73 @@ zurück auf `zurückgestellt`.
 **Die Reihenfolge, die ich vorschlagen würde.** Zuerst der erste echte Agentenlauf mit Schlüssel
 (steht noch aus und entscheidet über alles andere), dann `I-03` (weil ohne den Speicher jede
 weitere Sitzung mit Erinnerungsarbeit beginnt), dann `I-01` im umgebauten Zuschnitt, dann die
-Diskussionsprotokolle. `I-04` erst, wenn es genug Material gibt, an dem Verbindungen überhaupt
-etwas verbinden.
+Diskussionsprotokolle. `I-06` sobald genug Nutzung da ist, dass eine Auswertung nicht leer
+aussieht. `I-04` zuletzt — Verbindungen brauchen Material, das sie verbinden.
+
+---
+
+## Eintrag vom 29.08.2026 — Nachtrag
+
+### I-06 · Insights und Zeiterfassung
+
+> „Mir wäre es wichtig, dass Insights getrackt werden. Man sollte sehen, wie viel Zeit man in der
+> App verbracht hat."
+
+**Status:** `umgebaut` — Kern angenommen, Zielgröße ausgetauscht
+
+**Zuerst eine Rückfrage, weil das Wort zwei Dinge bedeuten kann.**
+
+- **(a) Erkenntnisse** — der Gedanke, der dir beim Lesen kommt: „das widerspricht dem Argument in
+  3.1". Ein eigenes Objekt, verknüpft mit Quelle und Kapitel, jederzeit wiederfindbar. Das wäre
+  fachlich das Wertvollere und ist die Schwester des Diskussionsprotokolls.
+- **(b) Nutzungsstatistik** — Kennzahlen über dein Arbeiten. Darauf deutet die Zeitmessung im
+  zweiten Satz hin.
+
+Ich gehe im Folgenden von **(b)** aus, halte aber **(a)** für die stärkere Idee und würde sie
+gern getrennt aufnehmen, falls du sie meintest.
+
+**Der Einwand gegen „Zeit in der App".**
+
+Die App kann messen, wie lange ein Tab offen war. Das ist kein Maß für Arbeit: Sechs Stunden
+offener Tab und keine geschriebene Zeile ergeben eine hervorragende Kennzahl und ein schlechtes
+Ergebnis. Schlimmer als ungenau ist sie **als Anreiz** — eine sichtbare Zahl, die Anwesenheit
+belohnt, zieht das Verhalten in Richtung Anwesenheit. Für eine Arbeit mit Abgabetermin ist das
+das falsche Signal, und es widerspricht dem Maßstab, auf den wir uns in `I-05` geeinigt haben:
+nicht Aktivität, sondern Seiten und Durchdringung.
+
+**Was stattdessen messbar und aussagekräftig ist — und größtenteils schon vorbereitet.**
+
+| Größe | Aussage | Stand im Schema |
+|---|---|---|
+| Zeit je Lesestufe | Wo im Lesen die Zeit wirklich hingeht | `reading_sessions.minutes` existiert, Endpunkt existiert, Oberfläche fehlt |
+| Ist gegen Schätzung je Aufgabe | Wie gut der Planer dich trifft | `estimate_min` **und** `actual_min` existieren, `actual_min` wird nie gefüllt |
+| Verinnerlichung über Zeit | Ob Durchdringung mit dem Bestand mitwächst | vollständig vorhanden, nur nicht ausgewertet |
+| Abbruchmuster | Vor welcher Stufe du regelmäßig aufhörst | vollständig vorhanden, nur nicht ausgewertet |
+
+**Der eigentlich wertvolle Insight: die Schätzkalibrierung.** Nach zwanzig erledigten Aufgaben
+lässt sich sagen „Schreibaufgaben dauern bei dir im Schnitt Faktor 1,8 länger als geschätzt" — und
+diese Zahl kann direkt in die Wissensbasis des Arbeitsplaners zurückfließen. Das ist exakt die
+Form von rekursivem Lernen, auf die `I-04` hinausläuft: sichtbares Muster, menschliche
+Entscheidung, versionierte Änderung. Kein selbstoptimierendes System, sondern eine geschlossene
+Schleife, die man im Nachweis zeigen kann.
+
+**Eine Warnung zur Bauweise.** Passives Mitschreiben ist billig zu bauen und teuer zu bereuen. Ein
+System, das jede Interaktion protokolliert, erzeugt einen Datenbestand über dich, den niemand
+angefordert hat und der später schwer zu begrenzen ist. Zeitmessung deshalb nur **explizit**:
+Aufgabe starten und beenden, Lesestufe starten und beenden. Sichtbar, abschaltbar, korrigierbar.
+
+**Was ich bauen würde, wenn du zustimmst.**
+
+1. Eine Uhr an der laufenden Aufgabe, die `actual_min` füllt — start, stop, nachträglich korrigierbar.
+2. Dieselbe Uhr im Lesesaal je Stufe.
+3. Eine Ansicht *Auswertung*: Schätzkalibrierung nach Aufgabenart, Zeit je Lesestufe,
+   Verinnerlichung im Verlauf, Abbruchmuster. Drei Zahlen, die etwas ändern — kein Kennzahlenteppich.
+
+Alles davon läuft **ohne API-Schlüssel** und ist damit sofort prüfbar.
+
+**Warum ich es noch nicht gebaut habe.** Du hast die Plattform noch nicht benutzt. Eine
+Auswertung ohne Nutzungsdaten zeigt leere Diagramme, und welche Zahl dir wirklich hilft, weißt du
+nach zwei Arbeitssitzungen besser als ich jetzt. Sag Bescheid, wenn ich trotzdem sofort anfangen
+soll — der Einwand oben ist ein Argument gegen die Kennzahl, nicht gegen die Reihenfolge.
+
+**Offene Frage an dich.** Meintest du (a) Erkenntnisse oder (b) Nutzungsstatistik — oder beides?
