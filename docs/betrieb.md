@@ -104,22 +104,24 @@ Oberfläche.
 ## 3 · Zugangsdaten
 
 ```
+bash /opt/kompass/deploy/set-key.sh
+```
+
+Das Skript fragt den Schlüssel ab, legt `.env` bei Bedarf aus der Vorlage an, setzt die Rechte
+auf `600` und übergibt die Datei dem Dienstnutzer. Die Eingabe bleibt unsichtbar und landet weder
+in der Shell-Historie noch in der Prozessliste. Versehentlich mitkopierte Leerzeichen und
+Anführungszeichen entfernt es selbst.
+
+Wer die Datei lieber von Hand bearbeitet, kann das weiterhin tun:
+
+```
 cp /opt/kompass/.env.example /opt/kompass/.env
 nano /opt/kompass/.env
-```
-
-Eintragen:
-
-```
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-Rechte einschränken — die Datei enthält deinen Schlüssel:
-
-```
 chmod 600 /opt/kompass/.env
 chown kompass:kompass /opt/kompass/.env
 ```
+
+In nano springt `Strg+E` ans Zeilenende, `Strg+O` und `Enter` speichern, `Strg+X` schließt.
 
 > **Setz im Anthropic-Konto ein Ausgabenlimit.** Console → Settings → Limits. Das ist das
 > Sicherheitsnetz, das unabhängig von allem anderen greift.
