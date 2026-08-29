@@ -52,8 +52,12 @@ ssh root@srv1803271.hstgr.cloud
 System aktualisieren:
 
 ```
+export NEEDRESTART_MODE=a
 apt update && apt upgrade -y
 ```
+
+`NEEDRESTART_MODE=a` unterdrückt den violetten Dialog, der sonst nach jedem Paket fragt, welche
+Dienste neu gestartet werden sollen.
 
 Node 22 aus der offiziellen Quelle — die Version aus dem Ubuntu-Paket ist zu alt:
 
@@ -84,8 +88,8 @@ chown -R kompass:kompass /opt/kompass
 Als Dienstnutzer installieren und bauen:
 
 ```
-sudo -u kompass npm install --no-audit --no-fund
-sudo -u kompass npm run build
+sudo -u kompass -H npm install --no-audit --no-fund
+sudo -u kompass -H npm run build
 ```
 
 `npm run build` erzeugt `dist/`. Ohne diesen Schritt liefert der Server nur die API und keine
@@ -94,7 +98,7 @@ Oberfläche.
 ## 3 · Zugangsdaten
 
 ```
-sudo -u kompass cp /opt/kompass/.env.example /opt/kompass/.env
+cp /opt/kompass/.env.example /opt/kompass/.env
 nano /opt/kompass/.env
 ```
 
@@ -117,7 +121,7 @@ chown kompass:kompass /opt/kompass/.env
 Beispieldaten anlegen (optional):
 
 ```
-sudo -u kompass npm --prefix /opt/kompass run seed
+cd /opt/kompass && sudo -u kompass -H npm run seed
 ```
 
 ## 4 · Als Dienst einrichten
@@ -229,7 +233,7 @@ woandershin.
 **Neuen Stand einspielen**
 
 ```
-sudo -u kompass /opt/kompass/deploy/update.sh
+sudo -u kompass -H /opt/kompass/deploy/update.sh
 ```
 
 Holt den Stand, installiert, baut und startet den Dienst neu. Deine Daten unter `data/` bleiben
@@ -278,6 +282,10 @@ der Schlüssel ohne Anführungszeichen darin steht. Nach jeder Änderung `system
 **Ein Agentenlauf bricht nach einer Minute ab**
 Wenn du hinter einem anderen Proxy als Caddy sitzt: dessen Zeitlimit hochsetzen. Läufe über
 Volltexte dauern Minuten. Im mitgelieferten Caddyfile stehen dafür 15 Minuten.
+
+**`npm install` scheitert mit `EACCES` auf `/root/.npm`**
+Dann fehlt `-H` bei `sudo`. Ohne diese Option behält der Befehl `HOME=/root`, und npm versucht,
+seinen Zwischenspeicher dort anzulegen. Immer `sudo -u kompass -H ...` verwenden.
 
 **`npm install` bricht mit Speichermangel ab**
 Bei einem VPS mit 1 GB RAM Auslagerungsdatei anlegen:

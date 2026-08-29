@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Neuen Stand einspielen. Als Nutzer kompass ausführen:
-#   sudo -u kompass /opt/kompass/deploy/update.sh
+#   sudo -u kompass -H /opt/kompass/deploy/update.sh
 set -euo pipefail
 
 cd /opt/kompass
